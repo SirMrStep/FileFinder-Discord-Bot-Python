@@ -18,14 +18,22 @@ async def on_ready():
             await tree.sync(guild=guild)
     except Exception as e:
         print(e)
+
     print(bot.user.name + " is ready.")
 
 
 @tree.command(name="find", description="Find an attachment by name.")
 @discord.app_commands.describe(name="The name of the Attachment to look for.")
-async def find(interaction: discord.Interaction, name: str):
+@discord.app_commands.describe(wide_search="Make this 'true' to search the whole discord.")
+async def find(interaction: discord.Interaction, name: str, wide_search: str = "false"):
 
-    messages = await fetch_all_messages(interaction.channel)
+    await interaction.response.send_message(embeds=[discord.Embed(title="Searching...", description=f"Searching for {name}", color=discord.Color.yellow())])
+
+    if wide_search == "true":
+        messages = await fetch_all_messages(interaction.guild)
+    else:
+        messages = await fetch_all_messages(interaction.channel)
+
     matches: List[str] = []
 
     for message in messages:
@@ -34,36 +42,64 @@ async def find(interaction: discord.Interaction, name: str):
                 matches.append("[" + attachment.filename + "](" + message.jump_url + ")")
 
     if len(matches) < 1:
-        await interaction.response.send_message(embeds=[
+        await interaction.edit_original_response(embeds=[
             discord.Embed(title="No files found with that name.", description=":shrug:",
                           color=discord.Color.red())])
         return
 
     separator = ", "
-    await interaction.response.send_message(embeds=[
+    await interaction.edit_original_response(embeds=[
         discord.Embed(title=f"Found {len(matches)} files:", description=f"{separator.join(matches)}",
                       color=discord.Color.green())])
 
 
-async def fetch_all_messages(channel: discord.TextChannel):
+async def fetch_all_messages(guild_or_channel: discord.Guild | discord.TextChannel):
+
     messages: List[discord.Message] = []
-    message = None
 
-    if channel.last_message is not None: message = channel.last_message
-    if message is None:
-        async for msg in channel.history(limit=1): message = msg
+    if type(guild_or_channel) is discord.Guild:
 
-    while message is not None:
+        for channel in guild_or_channel.channels:
 
-        message_page = [_ async for _ in channel.history(limit=100, before=message)]
+            if type(channel) is discord.TextChannel:
 
-        for msg in message_page: messages.append(msg)
+                message = None
 
-        if len(message_page) > 0:
-            message = message_page[len(message_page) - 1]
-            continue
+                if channel.last_message is not None: message = channel.last_message
+                if message is None:
+                    async for msg in channel.history(limit=1): message = msg
+
+                while message is not None:
+
+                    message_page = [_ async for _ in channel.history(limit=100, before=message)]
+
+                    for msg in message_page: messages.append(msg)
+
+                    if len(message_page) > 0:
+                        message = message_page[len(message_page) - 1]
+                        continue
+
+                    message = None
+
+    if type(guild_or_channel) is discord.TextChannel:
 
         message = None
+
+        if guild_or_channel.last_message is not None: message = guild_or_channel.last_message
+        if message is None:
+            async for msg in guild_or_channel.history(limit=1): message = msg
+
+        while message is not None:
+
+            message_page = [_ async for _ in guild_or_channel.history(limit=100, before=message)]
+
+            for msg in message_page: messages.append(msg)
+
+            if len(message_page) > 0:
+                message = message_page[len(message_page) - 1]
+                continue
+
+            message = None
 
     return messages
 
