@@ -1,3 +1,10 @@
+'''
+    Packages used:        Version:
+      discord.py            2.3.2
+      python-dotenv         1.0.0
+
+'''
+
 import os
 import discord
 from typing import List
@@ -11,7 +18,6 @@ discord_token = os.getenv("token")
 
 @bot.event
 async def on_ready():
-
     try:
         for guild in bot.guilds:
             tree.copy_global_to(guild=guild)
@@ -25,9 +31,11 @@ async def on_ready():
 @tree.command(name="find", description="Find an attachment by name.")
 @discord.app_commands.describe(name="The name of the Attachment to look for.")
 @discord.app_commands.describe(wide_search="Make this 'true' to search the whole discord.")
+@discord.app_commands.choices(wide_search=[discord.app_commands.Choice(name="true", value="true"), discord.app_commands.Choice(name="false", value="false")])
 async def find(interaction: discord.Interaction, name: str, wide_search: str = "false"):
 
-    await interaction.response.send_message(embeds=[discord.Embed(title="Searching...", description=f"Searching for {name}", color=discord.Color.yellow())])
+    await interaction.response.send_message(file=discord.File("./searching.png", filename="searching.png"),
+        embed=discord.Embed(title="Searching...", description=f"Searching for {name}", color=discord.Color.yellow()).set_image(url="attachment://searching.png"), ephemeral=True)
 
     if wide_search == "true":
         messages = await fetch_all_messages(interaction.guild)
@@ -38,19 +46,22 @@ async def find(interaction: discord.Interaction, name: str, wide_search: str = "
 
     for message in messages:
         for attachment in message.attachments:
-            if name.lower() in attachment.filename.lower():
-                matches.append("[" + attachment.filename + "](" + message.jump_url + ")")
+            try:
+                if name.lower() in attachment.filename.lower():
+                    matches.append("[" + attachment.filename + "](" + message.jump_url + ")")
+            except Exception as e:
+                continue
 
     if len(matches) < 1:
-        await interaction.edit_original_response(embeds=[
+        await interaction.edit_original_response(attachments=[discord.File("./not-found.jpg", filename="not-found.jpg")], embed=
             discord.Embed(title="No files found with that name.", description=":shrug:",
-                          color=discord.Color.red())])
+                          color=discord.Color.red()).set_image(url="attachment://not-found.jpg"))
         return
 
     separator = ", "
-    await interaction.edit_original_response(embeds=[
+    await interaction.edit_original_response(attachments=[discord.File("./found.jpg", filename="found.jpg")], embed=
         discord.Embed(title=f"Found {len(matches)} files:", description=f"{separator.join(matches)}",
-                      color=discord.Color.green())])
+                      color=discord.Color.green()).set_image(url="attachment://found.jpg"))
 
 
 async def fetch_all_messages(guild_or_channel: discord.Guild | discord.TextChannel):
