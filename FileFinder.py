@@ -28,10 +28,18 @@ async def on_ready():
     print(bot.user.name + " is ready.")
 
 
+def has_admin():
+    def predicate(interaction: discord.Interaction):
+        return interaction.user.guild_permissions.administrator
+    return discord.app_commands.check(predicate=predicate)
+
+
+
 @tree.command(name="find", description="Find an attachment by name.")
 @discord.app_commands.describe(name="The name of the Attachment to look for.")
 @discord.app_commands.describe(wide_search="Make this 'true' to search the whole discord.")
 @discord.app_commands.choices(wide_search=[discord.app_commands.Choice(name="true", value="true"), discord.app_commands.Choice(name="false", value="false")])
+@has_admin()
 async def find(interaction: discord.Interaction, name: str, wide_search: str = "false"):
 
     await interaction.response.send_message(file=discord.File("./searching.png", filename="searching.png"),
@@ -63,6 +71,11 @@ async def find(interaction: discord.Interaction, name: str, wide_search: str = "
         discord.Embed(title=f"Found {len(matches)} files:", description=f"{separator.join(matches)}",
                       color=discord.Color.green()).set_image(url="attachment://found.jpg"))
 
+@find.error
+async def find_error(interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+    if interaction.response.is_done() or interaction.is_expired(): return
+    await interaction.response.send_message(content="Only an Administrator can use this.", ephemeral=True)
+    return
 
 async def fetch_all_messages(guild_or_channel: discord.Guild | discord.TextChannel):
 
